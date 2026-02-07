@@ -1,0 +1,482 @@
+// Prevents additional console window on Windows in release, DO NOT REMOVE!!
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+use tauri::Manager;
+use std::sync::mpsc;
+use std::sync::{Arc, Mutex};
+use std::collections::HashMap;
+use tokio::process::{Child, Command};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use uuid::Uuid;
+
+#[tauri::command]
+async fn open_file_dialog(
+  app: tauri::AppHandle,
+) -> Result<Option<String>, String> {
+  use tauri_plugin_dialog::DialogExt;
+
+  let (tx, rx) = mpsc::channel();
+  
+  app.dialog()
+    .file()
+    .add_filter("Beaki Design Files", &["beaki", "json"])
+    .pick_file(move |path| {
+      let _ = tx.send(path);
+    });
+
+  // Convert sync receiver to async
+  match tokio::task::spawn_blocking(move || rx.recv()).await {
+    Ok(Ok(Some(path))) => {
+      let path_str = match path {
+        tauri_plugin_dialog::FilePath::Path(p) => p.to_string_lossy().to_string(),
+        tauri_plugin_dialog::FilePath::Url(url) => url.to_string(),
+      };
+      Ok(Some(path_str))
+    },
+    Ok(Ok(None)) => Ok(None),
+    _ => Ok(None), // User cancelled or channel closed
+  }
+}
+
+#[tauri::command]
+async fn save_file_dialog(
+  app: tauri::AppHandle,
+  default_path: Option<String>,
+) -> Result<Option<String>, String> {
+  use tauri_plugin_dialog::DialogExt;
+
+  let (tx, rx) = mpsc::channel();
+  
+  app.dialog()
+    .file()
+    .set_file_name(default_path.as_deref().unwrap_or("untitled.beaki"))
+    .add_filter("Beaki Design Files", &["beaki", "json"])
+    .save_file(move |path| {
+      let _ = tx.send(path);
+    });
+
+  match tokio::task::spawn_blocking(move || rx.recv()).await {
+    Ok(Ok(Some(path))) => {
+      let path_str = match path {
+        tauri_plugin_dialog::FilePath::Path(p) => p.to_string_lossy().to_string(),
+        tauri_plugin_dialog::FilePath::Url(url) => url.to_string(),
+      };
+      Ok(Some(path_str))
+    },
+    Ok(Ok(None)) => Ok(None),
+    _ => Ok(None), // User cancelled or channel closed
+  }
+}
+
+#[tauri::command]
+async fn open_directory_dialog(
+  app: tauri::AppHandle,
+) -> Result<Option<String>, String> {
+  use tauri_plugin_dialog::DialogExt;
+
+  let (tx, rx) = mpsc::channel();
+  
+  app.dialog()
+    .file()
+    .pick_folder(move |path| {
+      let _ = tx.send(path);
+    });
+
+  match tokio::task::spawn_blocking(move || rx.recv()).await {
+    Ok(Ok(Some(path))) => {
+      let path_str = match path {
+        tauri_plugin_dialog::FilePath::Path(p) => p.to_string_lossy().to_string(),
+        tauri_plugin_dialog::FilePath::Url(url) => url.to_string(),
+      };
+      Ok(Some(path_str))
+    },
+    Ok(Ok(None)) => Ok(None),
+    _ => Ok(None), // User cancelled or channel closed
+  }
+}
+
+#[tauri::command]
+async fn read_file(path: String) -> Result<String, String> {
+  tokio::fs::read_to_string(path)
+    .await
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn write_file(path: String, contents: String) -> Result<(), String> {
+  tokio::fs::write(path, contents)
+    .await
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn read_directory(path: String) -> Result<Vec<String>, String> {
+  let mut entries = Vec::new();
+  let mut dir = tokio::fs::read_dir(path)
+    .await
+    .map_err(|e| e.to_string())?;
+
+  while let Some(entry) = dir.next_entry().await.map_err(|e| e.to_string())? {
+    entries.push(entry.path().to_string_lossy().to_string());
+  }
+
+  Ok(entries)
+}
+
+#[tauri::command]
+async fn file_exists(path: String) -> Result<bool, String> {
+  Ok(tokio::fs::metadata(path).await.is_ok())
+}
+
+#[tauri::command]
+async fn is_directory(path: String) -> Result<bool, String> {
+  match tokio::fs::metadata(path).await {
+    Ok(metadata) => Ok(metadata.is_dir()),
+    Err(_) => Ok(false),
+  }
+}
+
+#[tauri::command]
+async fn get_documents_directory() -> Result<String, String> {
+  match dirs::document_dir() {
+    Some(path) => Ok(path.to_string_lossy().to_string()),
+    None => Err("Could not find Documents directory".to_string()),
+  }
+}
+
+#[tauri::command]
+async fn ensure_directory_exists(path: String) -> Result<(), String> {
+  tokio::fs::create_dir_all(path)
+    .await
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn rename_file(old_path: String, new_path: String) -> Result<(), String> {
+  tokio::fs::rename(old_path, new_path)
+    .await
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn detect_cli_tools() -> Result<Vec<serde_json::Value>, String> {
+  use std::process::Command;
+  
+  let cli_tools = vec!["codex", "geminicli", "claudecode"];
+  let mut detected: Vec<serde_json::Value> = Vec::new();
+  
+  for tool_name in cli_tools {
+    // Check if tool exists in PATH
+    let which_output = if cfg!(target_os = "windows") {
+      Command::new("where")
+        .arg(tool_name)
+        .output()
+    } else {
+      Command::new("which")
+        .arg(tool_name)
+        .output()
+    };
+    
+    if let Ok(output) = which_output {
+      if output.status.success() {
+        let command_path = String::from_utf8_lossy(&output.stdout)
+          .trim()
+          .to_string();
+        
+        if !command_path.is_empty() {
+          // Try to get version
+          let mut version = "unknown".to_string();
+          let version_output = Command::new(tool_name)
+            .arg("--version")
+            .output();
+          
+          if let Ok(ver_output) = version_output {
+            if ver_output.status.success() {
+              version = String::from_utf8_lossy(&ver_output.stdout)
+                .trim()
+                .to_string();
+            }
+          }
+          
+          detected.push(serde_json::json!({
+            "id": format!("cli-{}", tool_name),
+            "name": format!("{} (CLI)", tool_name),
+            "type": "cli",
+            "status": "available",
+            "command": command_path,
+            "metadata": {
+              "version": version
+            }
+          }));
+        }
+      }
+    }
+  }
+  
+  Ok(detected)
+}
+
+// MCP Connection State
+struct McpConnection {
+  process: Child,
+  connection_id: String,
+}
+
+type McpConnections = Arc<Mutex<HashMap<String, McpConnection>>>;
+
+#[tauri::command]
+async fn detect_ollama() -> Result<Option<serde_json::Value>, String> {
+  // Try to connect to Ollama server
+  let client = reqwest::Client::new();
+
+  match client
+    .get("http://localhost:11434/api/tags")
+    .timeout(std::time::Duration::from_secs(2))
+    .send()
+    .await
+  {
+    Ok(response) => {
+      if response.status().is_success() {
+        match response.json::<serde_json::Value>().await {
+          Ok(data) => {
+            let models = data.get("models")
+              .and_then(|m| m.as_array())
+              .map(|arr| {
+                arr.iter()
+                  .filter_map(|m| m.get("name").and_then(|n| n.as_str()))
+                  .collect::<Vec<_>>()
+              })
+              .unwrap_or_default();
+
+            Ok(Some(serde_json::json!({
+              "id": "ollama-local",
+              "name": "Ollama (Local)",
+              "type": "ollama",
+              "status": "available",
+              "endpoint": "http://localhost:11434",
+              "metadata": {
+                "models": models,
+                "version": data.get("version").and_then(|v| v.as_str()).unwrap_or("unknown")
+              }
+            })))
+          }
+          Err(_) => Ok(None)
+        }
+      } else {
+        Ok(None)
+      }
+    }
+    Err(_) => Ok(None)
+  }
+}
+
+#[tauri::command]
+async fn spawn_mcp_server(
+  command: String,
+  args: Vec<String>,
+  connections: tauri::State<'_, McpConnections>,
+) -> Result<String, String> {
+  // Generate unique connection ID
+  let connection_id = Uuid::new_v4().to_string();
+
+  // Spawn the MCP server process
+  let mut cmd = Command::new(&command);
+  cmd.args(&args)
+    .stdin(std::process::Stdio::piped())
+    .stdout(std::process::Stdio::piped())
+    .stderr(std::process::Stdio::piped());
+
+  let child = cmd.spawn()
+    .map_err(|e| format!("Failed to spawn MCP server: {}", e))?;
+
+  // Store the connection
+  let connection = McpConnection {
+    process: child,
+    connection_id: connection_id.clone(),
+  };
+
+  connections.lock()
+    .map_err(|e| format!("Failed to acquire lock: {}", e))?
+    .insert(connection_id.clone(), connection);
+
+  Ok(connection_id)
+}
+
+#[tauri::command]
+async fn send_mcp_message(
+  connection_id: String,
+  message: String,
+  connections: tauri::State<'_, McpConnections>,
+) -> Result<(), String> {
+  let mut connections_guard = connections.lock()
+    .map_err(|e| format!("Failed to acquire lock: {}", e))?;
+
+  let connection = connections_guard.get_mut(&connection_id)
+    .ok_or_else(|| format!("Connection {} not found", connection_id))?;
+
+  // Write message to stdin
+  if let Some(stdin) = connection.process.stdin.as_mut() {
+    let message_with_newline = format!("{}\n", message);
+    stdin.write_all(message_with_newline.as_bytes())
+      .await
+      .map_err(|e| format!("Failed to write to stdin: {}", e))?;
+
+    stdin.flush()
+      .await
+      .map_err(|e| format!("Failed to flush stdin: {}", e))?;
+
+    Ok(())
+  } else {
+    Err("Process stdin not available".to_string())
+  }
+}
+
+#[tauri::command]
+async fn read_mcp_response(
+  connection_id: String,
+  connections: tauri::State<'_, McpConnections>,
+) -> Result<String, String> {
+  let mut connections_guard = connections.lock()
+    .map_err(|e| format!("Failed to acquire lock: {}", e))?;
+
+  let connection = connections_guard.get_mut(&connection_id)
+    .ok_or_else(|| format!("Connection {} not found", connection_id))?;
+
+  // Read line from stdout
+  if let Some(stdout) = connection.process.stdout.as_mut() {
+    let mut reader = BufReader::new(stdout);
+    let mut line = String::new();
+
+    reader.read_line(&mut line)
+      .await
+      .map_err(|e| format!("Failed to read from stdout: {}", e))?;
+
+    Ok(line.trim().to_string())
+  } else {
+    Err("Process stdout not available".to_string())
+  }
+}
+
+#[tauri::command]
+async fn close_mcp_connection(
+  connection_id: String,
+  connections: tauri::State<'_, McpConnections>,
+) -> Result<(), String> {
+  let mut connections_guard = connections.lock()
+    .map_err(|e| format!("Failed to acquire lock: {}", e))?;
+
+  if let Some(mut connection) = connections_guard.remove(&connection_id) {
+    // Kill the process
+    connection.process.kill()
+      .await
+      .map_err(|e| format!("Failed to kill process: {}", e))?;
+
+    Ok(())
+  } else {
+    Err(format!("Connection {} not found", connection_id))
+  }
+}
+
+#[tauri::command]
+async fn detect_mcp_servers() -> Result<Vec<serde_json::Value>, String> {
+  use std::fs;
+  use std::path::PathBuf;
+  
+  let mut servers: Vec<serde_json::Value> = Vec::new();
+  
+  // Get home directory
+  let home_dir = match dirs::home_dir() {
+    Some(path) => path,
+    None => return Ok(servers), // No home directory, return empty
+  };
+  
+  // Common MCP server config locations
+  let config_paths = vec![
+    home_dir.join(".config").join("mcp").join("servers.json"),
+    home_dir.join(".mcp").join("servers.json"),
+    PathBuf::from(".").join(".mcp").join("servers.json"),
+  ];
+  
+  for config_path in config_paths {
+    if config_path.exists() {
+      match fs::read_to_string(&config_path) {
+        Ok(content) => {
+          match serde_json::from_str::<serde_json::Value>(&content) {
+            Ok(config) => {
+              // Parse MCP server configs
+              if let Some(config_obj) = config.as_object() {
+                for (server_id, server_config) in config_obj {
+                  if let Some(server_obj) = server_config.as_object() {
+                    servers.push(serde_json::json!({
+                      "id": format!("mcp-{}", server_id),
+                      "name": format!("{} (MCP)", server_id),
+                      "type": "mcp",
+                      "status": "available",
+                      "endpoint": server_obj.get("endpoint"),
+                      "command": server_obj.get("command"),
+                      "args": server_obj.get("args"),
+                      "metadata": {
+                        "version": server_obj.get("version")
+                      }
+                    }));
+                  }
+                }
+              }
+            }
+            Err(e) => {
+              eprintln!("Failed to parse MCP config at {:?}: {}", config_path, e);
+            }
+          }
+        }
+        Err(e) => {
+          eprintln!("Failed to read MCP config at {:?}: {}", config_path, e);
+        }
+      }
+    }
+  }
+  
+  Ok(servers)
+}
+
+fn main() {
+  // Create MCP connections state
+  let mcp_connections: McpConnections = Arc::new(Mutex::new(HashMap::new()));
+
+  tauri::Builder::default()
+    .plugin(tauri_plugin_dialog::init())
+    .plugin(tauri_plugin_fs::init())
+    .manage(mcp_connections)
+    .invoke_handler(tauri::generate_handler![
+      open_file_dialog,
+      save_file_dialog,
+      open_directory_dialog,
+      read_file,
+      write_file,
+      read_directory,
+      file_exists,
+      is_directory,
+      get_documents_directory,
+      ensure_directory_exists,
+      rename_file,
+      detect_cli_tools,
+      detect_mcp_servers,
+      detect_ollama,
+      spawn_mcp_server,
+      send_mcp_message,
+      read_mcp_response,
+      close_mcp_connection
+    ])
+    .setup(|app| {
+      let window = app.get_webview_window("main").unwrap();
+
+      // Enable devtools in debug mode
+      #[cfg(debug_assertions)]
+      {
+        window.open_devtools();
+      }
+
+      Ok(())
+    })
+    .run(tauri::generate_context!())
+    .expect("error while running tauri application");
+}

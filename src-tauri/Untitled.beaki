@@ -1,0 +1,40 @@
+{
+  "_format": "beaki-v1",
+  "version": "1.0.0",
+  "document": {
+    "id": "cj0E_u7sYVE_o2kzHy6yk",
+    "schemaVersion": "1.0.0",
+    "name": "Untitled",
+    "createdAt": "2026-01-25T14:31:02.873Z",
+    "updatedAt": "2026-01-25T14:31:16.261Z",
+    "activePageId": "4xk_xBinOk0-CFFIb1ntL",
+    "pages": {
+      "4xk_xBinOk0-CFFIb1ntL": {
+        "id": "4xk_xBinOk0-CFFIb1ntL",
+        "documentId": "cj0E_u7sYVE_o2kzHy6yk",
+        "name": "Page 1",
+        "frameIds": [],
+        "provenance": {
+          "createdAt": "2026-01-25T14:31:02.873Z",
+          "createdBy": {
+            "kind": "user"
+          }
+        }
+      }
+    },
+    "frames": {},
+    "layers": {},
+    "components": {},
+    "tokens": {},
+    "assets": {}
+  },
+  "viewport": {
+    "panX": 0,
+    "panY": 0,
+    "zoom": 1
+  },
+  "selection": {
+    "pageId": "4xk_xBinOk0-CFFIb1ntL",
+    "selectedIds": []
+  }
+}

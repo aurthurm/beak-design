@@ -1,0 +1,40 @@
+{
+  "_format": "beaki-v1",
+  "version": "1.0.0",
+  "document": {
+    "id": "DjrayJwtZHlyrPl9_hI5_",
+    "schemaVersion": "1.0.0",
+    "name": "New-Design",
+    "createdAt": "2026-01-25T14:30:39.104Z",
+    "updatedAt": "2026-01-25T14:30:43.285Z",
+    "activePageId": "Jbtl20VTEJEclSzMRbOaW",
+    "pages": {
+      "Jbtl20VTEJEclSzMRbOaW": {
+        "id": "Jbtl20VTEJEclSzMRbOaW",
+        "documentId": "DjrayJwtZHlyrPl9_hI5_",
+        "name": "Page 1",
+        "frameIds": [],
+        "provenance": {
+          "createdAt": "2026-01-25T14:30:39.104Z",
+          "createdBy": {
+            "kind": "user"
+          }
+        }
+      }
+    },
+    "frames": {},
+    "layers": {},
+    "components": {},
+    "tokens": {},
+    "assets": {}
+  },
+  "viewport": {
+    "panX": 0,
+    "panY": 0,
+    "zoom": 1
+  },
+  "selection": {
+    "pageId": "Jbtl20VTEJEclSzMRbOaW",
+    "selectedIds": []
+  }
+}

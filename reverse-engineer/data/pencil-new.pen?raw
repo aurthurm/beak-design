@@ -1,0 +1,1 @@
+export default "{\n  \"version\": \"2.6\",\n  \"children\": [\n    {\n      \"type\": \"frame\",\n      \"id\": \"bi8Au\",\n      \"x\": 0,\n      \"y\": 0,\n      \"name\": \"Frame\",\n      \"clip\": true,\n      \"width\": 800,\n      \"height\": 600,\n      \"fill\": \"#FFFFFF\",\n      \"layout\": \"none\"\n    }\n  ]\n}"
