@@ -2,6 +2,9 @@
 
 Beak Design is a canvas-based design tool with AI-assisted editing. It supports cloud and local agents and routes document mutations through MCP tools and a command bus.
 
+
+<img width="1916" height="1043" alt="image" src="https://github.com/user-attachments/assets/d32fdef3-099a-4624-8cfc-4a4f521e3964" />
+
 ## Tech Stack
 
 - TanStack Start + TanStack Router
