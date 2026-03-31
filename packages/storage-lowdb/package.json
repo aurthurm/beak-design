@@ -1,0 +1,12 @@
+{
+  "name": "@beak-design/storage-lowdb",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@tanstack/store": "^0.8.0",
+    "lowdb": "^7.0.1"
+  }
+}

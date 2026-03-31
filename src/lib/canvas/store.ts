@@ -1,5 +1,15 @@
 import { Store } from '@tanstack/store'
 import type { Document, PageId, FrameId, LayerId, SelectionState } from '../schema'
+import {
+  updateActiveToolState,
+  updateInteractionModeState,
+  updateIsCreatingState,
+  updateIsPanningState,
+  updateIsSelectingState,
+  updateIsTransformingState,
+  updateViewportState,
+  updateZoomState,
+} from '../../../packages/editor-core/src'
 
 export type InteractionMode = 'select' | 'move' | 'resize' | 'rotate' | 'pan'
 export type ToolType = 'select' | 'pan' | 'frame' | 'rect' | 'text' | 'image' | 'ellipse'
@@ -165,19 +175,11 @@ export const canvasActions = {
   },
   
   setViewport: (panX: number, panY: number, zoom?: number) => {
-    canvasStore.setState((state) => ({
-      ...state,
-      panX,
-      panY,
-      zoom: zoom !== undefined ? Math.max(state.minZoom, Math.min(state.maxZoom, zoom)) : state.zoom,
-    }))
+    canvasStore.setState((state) => updateViewportState(state, panX, panY, zoom))
   },
   
   setZoom: (zoom: number) => {
-    canvasStore.setState((state) => ({
-      ...state,
-      zoom: Math.max(state.minZoom, Math.min(state.maxZoom, zoom)),
-    }))
+    canvasStore.setState((state) => updateZoomState(state, zoom))
   },
   
   setSelection: (selection: SelectionState) => {
@@ -219,47 +221,27 @@ export const canvasActions = {
   },
   
   setInteractionMode: (mode: InteractionMode) => {
-    canvasStore.setState((state) => ({
-      ...state,
-      interactionMode: mode,
-    }))
+    canvasStore.setState((state) => updateInteractionModeState(state, mode))
   },
   
   setActiveTool: (tool: ToolType) => {
-    canvasStore.setState((state) => ({
-      ...state,
-      activeTool: tool,
-      interactionMode: tool === 'select' ? 'select' : state.interactionMode,
-    }))
+    canvasStore.setState((state) => updateActiveToolState(state, tool))
   },
   
   setIsCreating: (isCreating: boolean) => {
-    canvasStore.setState((state) => ({
-      ...state,
-      isCreating,
-    }))
+    canvasStore.setState((state) => updateIsCreatingState(state, isCreating))
   },
   
   setIsPanning: (isPanning: boolean) => {
-    canvasStore.setState((state) => ({
-      ...state,
-      isPanning,
-      interactionMode: isPanning ? 'pan' : state.interactionMode,
-    }))
+    canvasStore.setState((state) => updateIsPanningState(state, isPanning))
   },
   
   setIsSelecting: (isSelecting: boolean) => {
-    canvasStore.setState((state) => ({
-      ...state,
-      isSelecting,
-    }))
+    canvasStore.setState((state) => updateIsSelectingState(state, isSelecting))
   },
   
   setIsTransforming: (isTransforming: boolean) => {
-    canvasStore.setState((state) => ({
-      ...state,
-      isTransforming,
-    }))
+    canvasStore.setState((state) => updateIsTransformingState(state, isTransforming))
   },
   
   setGrid: (grid: Partial<GridSettings>) => {

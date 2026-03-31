@@ -17,3 +17,6 @@ db/
 # Tauri
 src-tauri/target
 src-tauri/Cargo.lock
+
+# folders
+references/

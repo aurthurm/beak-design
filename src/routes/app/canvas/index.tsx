@@ -1,8 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { useStore } from '@tanstack/react-store'
 import { CanvasViewport } from '@/components/canvas/CanvasViewport'
 import { ChatPanel } from '@/components/chat/ChatPanel'
 import { useChat } from '@/hooks/useChat'
-import { useStore } from '@tanstack/react-store'
 import { canvasStore } from '@/lib/canvas/store'
 
 export const Route = createFileRoute('/app/canvas/')({

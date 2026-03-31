@@ -1,0 +1,5 @@
+{
+  "name": "@beak-design/tsconfig",
+  "private": true,
+  "type": "module"
+}

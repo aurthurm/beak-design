@@ -1,0 +1,11 @@
+{
+  "name": "@beak-design/web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev --port 3000",
+    "build": "vite build",
+    "lint": "eslint src vite.config.ts",
+    "preview": "vite preview"
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "name": "@beak-design/eslint-config",
+  "private": true,
+  "type": "module"
+}

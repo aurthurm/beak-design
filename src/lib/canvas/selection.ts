@@ -1,4 +1,13 @@
 import type { FrameId, LayerId, Rect, SelectionState } from '../schema'
+import {
+  addToSelection,
+  calculateSelectionBounds,
+  clearSelection,
+  removeFromSelection,
+  selectMultiple,
+  selectSingle,
+  toggleSelection,
+} from '../../../packages/editor-core/src'
 import { canvasStore, canvasActions } from './store'
 
 /**
@@ -9,63 +18,42 @@ export const selectionActions = {
    * Select a single item (replaces current selection)
    */
   select: (id: FrameId | LayerId, pageId?: string) => {
-    canvasActions.setSelection({
-      pageId: pageId ?? canvasStore.state.selection.pageId,
-      selectedIds: [id],
-      bounds: undefined, // Will be calculated from selected item
-    })
+    canvasActions.setSelection(selectSingle(canvasStore.state.selection, id, pageId))
   },
 
   /**
    * Add item to selection (multi-select)
    */
   add: (id: FrameId | LayerId) => {
-    canvasActions.addToSelection([id])
+    canvasActions.setSelection(addToSelection(canvasStore.state.selection, [id]))
   },
 
   /**
    * Remove item from selection
    */
   remove: (id: FrameId | LayerId) => {
-    canvasActions.removeFromSelection([id])
+    canvasActions.setSelection(removeFromSelection(canvasStore.state.selection, [id]))
   },
 
   /**
    * Toggle item in selection
    */
   toggle: (id: FrameId | LayerId, pageId?: string) => {
-    const state = canvasStore.state
-    if (state.selection.selectedIds.includes(id)) {
-      selectionActions.remove(id)
-    } else {
-      if (state.selection.selectedIds.length === 0 && pageId) {
-        canvasActions.setSelection({
-          pageId,
-          selectedIds: [id],
-          bounds: undefined,
-        })
-      } else {
-        selectionActions.add(id)
-      }
-    }
+    canvasActions.setSelection(toggleSelection(canvasStore.state.selection, id, pageId))
   },
 
   /**
    * Select multiple items
    */
   selectMultiple: (ids: Array<FrameId | LayerId>, pageId?: string) => {
-    canvasActions.setSelection({
-      pageId: pageId ?? canvasStore.state.selection.pageId,
-      selectedIds: ids,
-      bounds: undefined,
-    })
+    canvasActions.setSelection(selectMultiple(canvasStore.state.selection, ids, pageId))
   },
 
   /**
    * Clear selection
    */
   clear: () => {
-    canvasActions.clearSelection()
+    canvasActions.setSelection(clearSelection(canvasStore.state.selection))
   },
 
   /**
@@ -80,50 +68,4 @@ export const selectionActions = {
   },
 }
 
-/**
- * Calculate bounding box for selected items
- */
-export function calculateSelectionBounds(
-  selectedIds: Array<FrameId | LayerId>,
-  document: { frames: Record<FrameId, any>; layers: Record<LayerId, any> }
-): Rect | undefined {
-  if (selectedIds.length === 0) return undefined
-
-  const items = selectedIds
-    .map((id) => {
-      // Check if it's a frame or layer
-      if (document.frames[id as FrameId]) {
-        return document.frames[id as FrameId]
-      }
-      if (document.layers[id as LayerId]) {
-        return document.layers[id as LayerId]
-      }
-      return null
-    })
-    .filter(Boolean)
-
-  if (items.length === 0) return undefined
-
-  let minX = Infinity
-  let minY = Infinity
-  let maxX = -Infinity
-  let maxY = -Infinity
-
-  for (const item of items) {
-    if (item.rect) {
-      minX = Math.min(minX, item.rect.x)
-      minY = Math.min(minY, item.rect.y)
-      maxX = Math.max(maxX, item.rect.x + item.rect.w)
-      maxY = Math.max(maxY, item.rect.y + item.rect.h)
-    }
-  }
-
-  if (minX === Infinity) return undefined
-
-  return {
-    x: minX,
-    y: minY,
-    w: maxX - minX,
-    h: maxY - minY,
-  }
-}
+export { calculateSelectionBounds }

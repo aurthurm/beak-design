@@ -1,0 +1,11 @@
+{
+  "name": "@beak-design/schema",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "nanoid": "^5.1.6"
+  }
+}

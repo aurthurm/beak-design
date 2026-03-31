@@ -8,7 +8,7 @@ export {
   requestWorkspaceFolder,
   requestSaveLocation,
   isFileSystemAccessSupported,
-} from './tauri-fs'
+} from '../../../packages/platform-tauri/src/tauri-fs'
 
 // Re-export types for backward compatibility
-export type { } from './tauri-fs'
+export type { } from '../../../packages/platform-tauri/src/tauri-fs'

@@ -133,9 +133,10 @@ export async function getAgentAdapter(
       const { CLIAgentAdapter } = await import('./cli-adapter')
       return new CLIAgentAdapter(config)
 
-    case 'mcp':
+    case 'mcp': {
       const { MCPAgentAdapter } = await import('./mcp-adapter')
       return new MCPAgentAdapter(config)
+    }
 
     default:
       throw new Error(`Unknown agent type: ${type}`)

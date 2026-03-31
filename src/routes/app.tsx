@@ -22,7 +22,7 @@ export const Route = createFileRoute('/app')({
     if (typeof window === 'undefined') {
       return
     }
-    
+
     // Redirect to login if not authenticated
     if (!isAuthenticated()) {
       throw redirect({ to: '/login' })
@@ -35,76 +35,61 @@ function AppLayout() {
   const activeTool = useStore(canvasStore, (state) => state.activeTool)
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
-  
-  // Mark as mounted on client side to prevent hydration mismatches
+
   useEffect(() => {
     setIsMounted(true)
   }, [])
-  
-  // Initialize metadata DB and load last edited project
+
   useEffect(() => {
     let mounted = true
-    
+
     const initialize = async () => {
       if (typeof window === 'undefined') return
-      
+
       await initMetadataDb()
-      
+
       if (!mounted) return
-      
+
       const state = canvasStore.state
-      
-      // Try to load last edited project (only in Tauri, not browser)
       const { isTauri, readFile, fileExists } = await import('@/lib/utils/tauri-fs')
       const lastProject = getMostRecentlyEditedProject()
-      
+
       if (lastProject && !state.document && isTauri() && lastProject.filePath) {
-        console.log('[App Init] Found last edited project:', lastProject.name, 'at', lastProject.filePath)
-        
-        // Check if file exists before trying to load it
         const exists = await fileExists(lastProject.filePath)
-        console.log('[App Init] File exists:', exists)
-        
+
         if (exists) {
           try {
-            console.log('[App Init] Loading file:', lastProject.filePath)
             const content = await readFile(lastProject.filePath)
             const { deserializeBeaki } = await import('@/lib/beaki/file-handler')
             const project = deserializeBeaki(content)
-            
-            console.log('[App Init] File loaded successfully, setting document')
+
             canvasActions.setDocument(project.document)
             canvasActions.setActivePage(project.document.activePageId)
             canvasActions.setCurrentFilePath(lastProject.filePath)
-            
-            // Restore viewport if available
+
             if (project.viewport) {
-              canvasActions.setViewport(project.viewport.panX, project.viewport.panY, project.viewport.zoom)
+              canvasActions.setViewport(
+                project.viewport.panX,
+                project.viewport.panY,
+                project.viewport.zoom,
+              )
             }
-            
-            // Restore selection if available
+
             if (project.selection) {
               canvasActions.setSelection(project.selection)
             }
-            
+
             canvasActions.setSaveStatus('saved')
-            console.log('[App Init] ✓ Last edited project loaded successfully')
-            return // Don't create default document
+            return
           } catch (error) {
             console.error('[App Init] Failed to load last edited project:', error)
-            // Fall through to create default document
           }
-        } else {
-          console.log('[App Init] File does not exist, will create new document')
         }
-      } else if (lastProject && !state.document) {
-        console.log('[App Init] Last edited project found but cannot auto-load (browser mode or no file path):', lastProject.name, 'at', lastProject.filePath)
       }
-      
-      // If no document exists, create default
+
       if (!state.document) {
         const workspace = getCurrentWorkspace()
-        const defaultFilePath = workspace 
+        const defaultFilePath = workspace
           ? createRootFilePath('New-Design', workspace)
           : getDefaultFilePath()
         const newDoc = createEmptyDocument('New-Design')
@@ -113,7 +98,6 @@ function AppLayout() {
         canvasActions.setCurrentFilePath(defaultFilePath)
         canvasActions.setSaveStatus(null)
       } else if (!state.currentFilePath) {
-        // If document exists but no file path, set default file path
         const workspace = getCurrentWorkspace()
         const defaultFilePath = workspace
           ? createRootFilePath('New-Design', workspace)
@@ -121,32 +105,32 @@ function AppLayout() {
         canvasActions.setCurrentFilePath(defaultFilePath)
       }
     }
-    
+
     initialize()
-    
+
     return () => {
       mounted = false
     }
   }, [])
 
-  // Initialize persistence and auto-save on mount
   useEffect(() => {
     let unsubscribe: (() => void) | null = null
-    
-    initializePersistence().then(() => {
-      unsubscribe = setupAutoSave()
-    }).catch((error) => {
-      console.error('Failed to initialize persistence:', error)
-    })
-    
+
+    initializePersistence()
+      .then(() => {
+        unsubscribe = setupAutoSave()
+      })
+      .catch((error) => {
+        console.error('Failed to initialize persistence:', error)
+      })
+
     return () => {
       if (unsubscribe) {
         unsubscribe()
       }
     }
   }, [])
-  
-  // Show right sidebar when items are selected, hide when nothing is selected
+
   useEffect(() => {
     const hasSelection = canvasState.selection.selectedIds.length > 0
     setRightSidebarOpen(hasSelection)

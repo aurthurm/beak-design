@@ -1,0 +1,14 @@
+{
+  "name": "@beak-design/ai-core",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@tanstack/ai": "latest",
+    "@tanstack/ai-anthropic": "latest",
+    "@tanstack/ai-ollama": "latest",
+    "nanoid": "^5.1.6"
+  }
+}

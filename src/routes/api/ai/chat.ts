@@ -5,77 +5,10 @@ import { CanvasCommandBus } from '@/lib/ai/command-bus'
 import { SimpleTransactionManager } from '@/lib/ai/transaction-manager'
 import { getToolContextProvider } from '@/lib/ai/tool-context-provider'
 import { getMcpToolsForAI } from '@/lib/ai/mcp-tool-adapters'
+import { buildSystemPrompt, getModelFromConfig, normalizeChatMessages } from '@/lib/ai/chat-policy'
+import { normalizeChatDeltaForClient } from '@/lib/ai/chat-stream'
 import { getAgentAdapter } from '@/lib/ai/agent-adapters'
 import type { AgentConfig } from '@/lib/ai/agent-config'
-
-/**
- * Get model from agent config or use default
- */
-function getModelFromConfig(agentConfig?: AgentConfig): string {
-  if (agentConfig?.metadata?.model) {
-    return agentConfig.metadata.model
-  }
-  // Default model
-  return 'claude-3-5-sonnet-20241022'
-}
-
-/**
- * Build system prompt with document context
- */
-function buildSystemPrompt(selectedIDs: string[], documentContext?: {
-  documentName?: string
-  documentId?: string
-  activePageId?: string
-  frameCount?: number
-  layerCount?: number
-}): string {
-  let prompt = `You are an AI design assistant helping users create and modify designs in a canvas-based design tool.
-
-Available Tools:
-- batch_design: Execute multiple design operations (Insert, Copy, Replace, Move, Delete, Update)
-- search_design_nodes: Search for nodes in the document tree
-- get_editor_state: Get current editor state
-- document_tree: Get full document structure
-- selection_state: Get current selection
-- design_tokens: Get design tokens
-- create_frame, update_frame, delete_frame: Frame operations
-- create_layer, update_layer, delete_layer: Layer operations
-- export_frame_png: Export frame as PNG
-
-When modifying designs, use batch_design for multiple operations. Always use the active document context.
-
-Current Context:
-`
-
-  if (documentContext) {
-    if (documentContext.documentName) {
-      prompt += `- Active Document: ${documentContext.documentName}${documentContext.documentId ? ` (${documentContext.documentId})` : ''}\n`
-    }
-    if (documentContext.activePageId) {
-      prompt += `- Active Page: ${documentContext.activePageId}\n`
-    }
-    if (documentContext.frameCount !== undefined) {
-      prompt += `- Total Frames: ${documentContext.frameCount}\n`
-    }
-    if (documentContext.layerCount !== undefined) {
-      prompt += `- Total Layers: ${documentContext.layerCount}\n`
-    }
-  }
-
-  if (selectedIDs.length > 0) {
-    prompt += `- Selected Objects: ${selectedIDs.join(', ')}\n`
-  }
-
-  prompt += `
-Instructions:
-- Use batch_design for creating/modifying multiple elements at once
-- Be concise and helpful
-- When asked to create designs, use appropriate tools
-- Always confirm what you're doing before making changes
-`
-
-  return prompt
-}
 
 export const Route = createFileRoute('/api/ai/chat')({
   component: () => null,
@@ -133,18 +66,7 @@ export const Route = createFileRoute('/api/ai/chat')({
           const mcpTools = getMcpToolsForAI(toolRegistry)
 
           // Convert messages format
-          const aiMessages = messages.map((msg: any) => {
-            if (msg.role === 'user') {
-              return { role: 'user' as const, content: msg.text || msg.content }
-            }
-            if (msg.role === 'assistant') {
-              return {
-                role: 'assistant' as const,
-                content: msg.text || msg.content,
-              }
-            }
-            return msg
-          })
+          const aiMessages = normalizeChatMessages(messages)
 
           // Build agent config
           let finalAgentConfig: AgentConfig
@@ -222,30 +144,13 @@ export const Route = createFileRoute('/api/ai/chat')({
           const adapterStream = adapter.stream(chatRequest)
 
           // Normalize delta to format client expects (name/input/result vs toolName/toolInput/toolResult)
-          function toClientDelta(delta: {
-            type: string
-            content?: string
-            toolName?: string
-            toolInput?: any
-            toolResult?: any
-            error?: string
-          }) {
-            if (delta.type === 'tool-call') {
-              return { type: 'tool-call', name: delta.toolName, input: delta.toolInput }
-            }
-            if (delta.type === 'tool-result') {
-              return { type: 'tool-result', name: delta.toolName, result: delta.toolResult, error: delta.error }
-            }
-            return delta
-          }
-
           // Convert adapter stream to SSE format
           const encoder = new TextEncoder()
           const readable = new ReadableStream({
             async start(controller) {
               try {
                 for await (const delta of adapterStream) {
-                  const clientDelta = toClientDelta(delta)
+                  const clientDelta = normalizeChatDeltaForClient(delta)
                   controller.enqueue(encoder.encode(`data: ${JSON.stringify(clientDelta)}\n\n`))
                 }
                 controller.close()
@@ -315,6 +220,7 @@ export const Route = createFileRoute('/api/ai/chat')({
             headers: {
               'Content-Type': 'text/event-stream',
               'Cache-Control': 'no-cache',
+              Connection: 'keep-alive',
             },
           })
         }

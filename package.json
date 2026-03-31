@@ -5,12 +5,15 @@
   "scripts": {
     "dev": "vite dev --port 3000",
     "build": "vite build",
+    "build:workspace": "pnpm -r --if-present build",
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
     "test": "vitest run",
+    "test:workspace": "pnpm -r --if-present test",
     "lint": "eslint",
+    "lint:workspace": "pnpm -r --if-present lint",
     "format": "prettier",
     "check": "prettier --write . && eslint --fix"
   },

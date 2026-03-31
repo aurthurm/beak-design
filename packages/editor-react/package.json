@@ -1,0 +1,8 @@
+{
+  "name": "@beak-design/editor-react",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  }
+}

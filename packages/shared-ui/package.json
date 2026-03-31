@@ -1,0 +1,12 @@
+{
+  "name": "@beak-design/shared-ui",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^3.0.2"
+  }
+}
